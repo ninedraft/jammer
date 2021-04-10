@@ -11,6 +11,8 @@ import (
 
 	"github.com/ninedraft/gemax/gemax"
 	"github.com/ninedraft/jammer/config"
+	"github.com/ninedraft/jammer/counter"
+	"github.com/ninedraft/jammer/middleware"
 )
 
 func main() {
@@ -23,15 +25,21 @@ func main() {
 		log.Printf("%v", errTLS)
 		os.Exit(1)
 	}
-	var server = gemax.Server{
-		Addr:  cfg.Addr,
-		Hosts: cfg.Hosts,
-		Logf:  log.Printf,
-		Handler: (&gemax.FileSystem{
+
+	var blog = middleware.Use(
+		(&gemax.FileSystem{
 			Prefix: cfg.ContentDir,
 			FS:     os.DirFS(cfg.ContentDir),
 			Logf:   log.Printf,
 		}).Serve,
+		counter.New("/stats").Middleware,
+	)
+
+	var server = gemax.Server{
+		Addr:    cfg.Addr,
+		Hosts:   cfg.Hosts,
+		Logf:    log.Printf,
+		Handler: blog,
 	}
 
 	var ctx, cancel = signal.NotifyContext(context.Background())
