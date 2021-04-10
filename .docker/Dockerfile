@@ -15,6 +15,6 @@ RUN --mount=type=cache,target=/root/.cache/go-build make jammer
 
 FROM alpine:3
 
-COPY --from=builder /app/target/ /usr/local/bin-
+COPY --from=builder /app/target/ /usr/local/bin
 
 ENTRYPOINT [ "jammer" ]
