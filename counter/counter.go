@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
+	"net"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -25,15 +26,17 @@ type Counter struct {
 
 func New(statsPath string) *Counter {
 	return &Counter{
-		start: time.Now(),
-		hll:   hyperloglog.New(),
-		pages: map[string]uint64{},
+		StatsPath: statsPath,
+		start:     time.Now(),
+		hll:       hyperloglog.New(),
+		pages:     map[string]uint64{},
 	}
 }
 
 func (counter *Counter) Middleware(next gemax.Handler) gemax.Handler {
 	return func(ctx context.Context, rw gemax.ResponseWriter, req gemax.IncomingRequest) {
 		if counter.matchStatsPath(req.URL().Path) {
+			log.Println("serving stats")
 			counter.ServeStats(ctx, rw, req)
 			return
 		}
@@ -50,7 +53,7 @@ func (counter *Counter) ServeStats(ctx context.Context, rw gemax.ResponseWriter,
 
 	rw.WriteStatus(status.Success, "text/gemini")
 	_, _ = io.WriteString(rw, "# Blog stats\n\n")
-	fmt.Fprintf(rw, "- uptime: %v\n", values.Uptime)
+	fmt.Fprintf(rw, "- uptime: %v\n", values.Uptime.Round(time.Second))
 	fmt.Fprintf(rw, "- unique clients estimated by hyperloglog: %d\n", values.NClients)
 
 	_, _ = io.WriteString(rw, "## Requests per page\n")
@@ -72,8 +75,7 @@ func (counter *Counter) incr(req gemax.IncomingRequest) {
 }
 
 func (counter *Counter) matchStatsPath(p string) bool {
-	return counter.StatsPath != "" &&
-		strings.TrimSuffix(p, "/") == strings.TrimSuffix(counter.StatsPath, "/")
+	return p == counter.StatsPath
 }
 
 func (counter *Counter) stats() *statsValues {
