@@ -63,7 +63,11 @@ func (counter *Counter) incr(req gemax.IncomingRequest) {
 	counter.mu.Lock()
 	defer counter.mu.Unlock()
 
-	counter.hll.Insert([]byte(req.RemoteAddr()))
+	var addr = req.RemoteAddr()
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		addr = host
+	}
+	counter.hll.Insert([]byte(addr))
 	counter.pages[req.URL().Path]++
 }
 
